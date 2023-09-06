@@ -1,12 +1,15 @@
 
 using System.Text;
 using API.Helpers;
+using API.Helpers.Errors;
 using API.Services;
 using Aplicacion.UnitOfWork;
 using Dominio.Entities;
 using Dominio.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
 namespace API.Extensions
@@ -27,6 +30,7 @@ namespace API.Extensions
             services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IAuthorizationHandler, GlobalVerbRoleHandler>();
         }
 
         public static void AddJwt(this IServiceCollection services, IConfiguration configuration)
@@ -57,6 +61,27 @@ namespace API.Extensions
                     };
                 });
         }
+        public static void AddValidationErrors(this IServiceCollection services)
+        {
+            services.Configure<ApiBehaviorOptions>(options =>
+            {
+                options.InvalidModelStateResponseFactory = actionContext =>
+                {
+
+                    var errors = actionContext.ModelState.Where(u => u.Value.Errors.Count > 0)
+                                                    .SelectMany(u => u.Value.Errors)
+                                                    .Select(u => u.ErrorMessage).ToArray();
+
+                    var errorResponse = new ApiValidation()
+                    {
+                        Errors = errors
+                    };
+
+                    return new BadRequestObjectResult(errorResponse);
+                };
+            });
+        }
 
     }
+
 }
